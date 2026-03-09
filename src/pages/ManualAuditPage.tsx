@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Review } from "@/types/review";
-import { Upload, FileSearch, AlertTriangle, Send, MessageCircle, Mail, Hash } from "lucide-react";
+import { Upload, FileSearch, AlertTriangle, MessageCircle, Mail, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -25,61 +25,100 @@ const ManualAuditPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // AI processing helper
+  const processWithAI = useCallback(async (reviews: any[]): Promise<any[]> => {
+    return await Promise.all(reviews.map(async (review) => {
+      try {
+        const res = await fetch("/api/aiClassifyReview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            review_text: review.review_text,
+            product_name: review.product_name
+          })
+        });
+
+        if (!res.ok) throw new Error(`AI API failed with status ${res.status}`);
+        const aiResult = await res.json();
+
+        console.log("AI Response for review:", review.review_text.substring(0, 50) + "...", aiResult);
+
+        return {
+          ...review,
+          risk_level: aiResult.risk_level || "Low",
+          issue_category: aiResult.issue_category || "General Safety",
+          authenticity_score: aiResult.authenticity_score ?? 0.5,
+          ai_confidence: aiResult.ai_confidence ?? 0.5,
+          classification: aiResult.classification || "Low Value Lead"
+        };
+      } catch (error) {
+        console.error("AI processing error:", error);
+        return {
+          ...review,
+          risk_level: "Low",
+          issue_category: "General Safety",
+          authenticity_score: 0.5,
+          ai_confidence: 0.5,
+          classification: "Low Value Lead"
+        };
+      }
+    }));
+  }, []);
+
+  // CSV file processing
   const processFile = useCallback(async (file: File) => {
     if (!file.name.endsWith(".csv")) {
       toast({ title: "Invalid file", description: "Please upload a CSV file.", variant: "destructive" });
       return;
     }
+
     setScanning(true);
     setReviews([]);
+
     try {
       const result = await parseCSV(file);
-      console.log("CSV raw keys from first row:", Object.keys(result.reviews[0] || {}));
-      
-      function classifyRow(row) {
-        const score = Number(row.Assignment_Quality_Score)
-        if (score >= 7) return "High Value Lead"
-        if (score >= 4) return "Medium Value Lead"
-        return "Low Value Lead"
-      }
 
-      const processedData = result.reviews.map(row => ({
-        ...row,
-        classification: classifyRow(row)
-      }));
+      // Step 1: AI enrichment
+      const aiProcessedData = await processWithAI(result.reviews);
+      console.log("Final AI Processed Data:", aiProcessedData);
 
-      console.log('Processed CSV Data:', processedData);
-      await insertReviews(processedData);
+      // Step 2: Insert enriched data into Supabase
+      await insertReviews(aiProcessedData);
 
-      const parsed: Review[] = processedData.map((r, i) => ({
+      // Step 3: Update UI state
+      const parsed: Review[] = aiProcessedData.map((r, i) => ({
         ...r,
         id: `rev_${Date.now()}_${i}`,
       }));
       setReviews(parsed);
 
+      // Step 4: Show toast
       if (result.errors.length > 0) {
-        toast({ title: "Parsed with warnings", description: `${result.errors.length} rows had issues.`, variant: "destructive" });
+        toast({
+          title: "Parsed with warnings",
+          description: `${result.errors.length} rows had issues.`,
+          variant: "destructive"
+        });
       } else {
-        toast({ title: "Scan Complete", description: `${parsed.length} reviews analyzed successfully.` });
+        toast({
+          title: "Scan Complete",
+          description: `${parsed.length} reviews analyzed successfully.`
+        });
       }
-
-      // Placeholder: send to Supabase
-      // const { success, error } = await insertReviews(result.reviews);
-    } catch {
+    } catch (err) {
+      console.error("File processing error:", err);
       toast({ title: "Parse Error", description: "Failed to parse CSV file.", variant: "destructive" });
     } finally {
       setScanning(false);
     }
-  }, [toast]);
+  }, [toast, processWithAI]);
 
   const handleUpload = () => fileInputRef.current?.click();
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processFile(file);
     e.target.value = "";
   };
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
