@@ -34,7 +34,24 @@ const ManualAuditPage = () => {
     setReviews([]);
     try {
       const result = await parseCSV(file);
-      const parsed: Review[] = result.reviews.map((r, i) => ({
+      console.log("CSV raw keys from first row:", Object.keys(result.reviews[0] || {}));
+      
+      function classifyRow(row) {
+        const score = Number(row.Assignment_Quality_Score)
+        if (score >= 7) return "High Value Lead"
+        if (score >= 4) return "Medium Value Lead"
+        return "Low Value Lead"
+      }
+
+      const processedData = result.reviews.map(row => ({
+        ...row,
+        classification: classifyRow(row)
+      }));
+
+      console.log('Processed CSV Data:', processedData);
+      await insertReviews(processedData);
+
+      const parsed: Review[] = processedData.map((r, i) => ({
         ...r,
         id: `rev_${Date.now()}_${i}`,
       }));

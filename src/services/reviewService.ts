@@ -21,15 +21,48 @@ export async function fetchReviews(): Promise<Review[]> {
 /**
  * Insert parsed CSV reviews into Supabase.
  */
-export async function insertReviews(reviews: Omit<Review, "id">[]): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase.from("reviews").insert(reviews);
+export async function insertReviews(reviews: any[]): Promise<{ success: boolean; error?: string }> {
+  const formattedRows = reviews.map(row => {
+    // Use exact CSV headers
+    const rawDate = row.review_date || row["review_date"];
+    const rawUser = row.user_id || row["user_id"];
 
-  if (error) {
-    console.error("Error inserting reviews:", error);
-    return { success: false, error: error.message };
+    // Convert date to YYYY-MM-DD if present
+    const parsedDate = rawDate ? new Date(rawDate).toISOString().split("T")[0] : null;
+
+    return {
+      product_name: row.product_name || row["product_name"] || "",
+      review_text: row.review_text || row["review_text"] || "",
+      review_date: parsedDate,
+      user_id: rawUser || null,
+      risk_level: row.classification || null,
+      issue_category: null,
+      authenticity_score: null,
+      ai_confidence: null,
+      ai_processed: true,
+      auth_user_id: null
+    };
+  });
+
+  console.log("Mapped rows for Supabase:", formattedRows);
+
+  try {
+    const { data, error } = await supabase
+      .from("reviews")
+      .insert(formattedRows)
+      .select(); // returns inserted rows
+
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return { success: false, error: error.message };
+    }
+
+    console.log("Supabase insert success:", data);
+    return { success: true };
+  } catch (err) {
+    console.error("Supabase insert error:", err);
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
-
-  return { success: true };
 }
 
 /**
