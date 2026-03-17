@@ -8,4 +8,5 @@ export interface Review {
   ai_confidence: number;
   timestamp: string;
   flagged: boolean;
+  classification: string;
 }

@@ -1,3 +1,4 @@
+// ManualAuditPage.tsx
 import { useState, useCallback, useRef } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Review } from "@/types/review";
@@ -17,6 +18,8 @@ const riskColor: Record<string, string> = {
   Safe: "bg-success text-success-foreground",
 };
 
+const BATCH_SIZE = 20; // Send 20 reviews per AI request
+
 const ManualAuditPage = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [scanning, setScanning] = useState(false);
@@ -25,93 +28,106 @@ const ManualAuditPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // AI processing helper
-  const processWithAI = useCallback(async (reviews: any[]): Promise<any[]> => {
-    return await Promise.all(reviews.map(async (review) => {
+  // Process reviews in batches
+  const processWithAI = useCallback(async (reviews: Review[]): Promise<Review[]> => {
+    const results: Review[] = [];
+    for (let i = 0; i < reviews.length; i += BATCH_SIZE) {
+      const batch = reviews.slice(i, i + BATCH_SIZE);
       try {
-        const res = await fetch("/api/aiClassifyReview", {
+        const API_URL = import.meta.env.DEV
+          ? "http://localhost:3000/api/ai-classify-review"
+          : "/api/ai-classify-review";
+
+        const res = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            review_text: review.review_text,
-            product_name: review.product_name
-          })
+            reviews: batch.map((r) => ({
+              review_text: r.review_text,
+              product_name: r.product_name,
+            })),
+          }),
         });
 
         if (!res.ok) throw new Error(`AI API failed with status ${res.status}`);
-        const aiResult = await res.json();
+        const aiResults = await res.json();
 
-        console.log("AI Response for review:", review.review_text.substring(0, 50) + "...", aiResult);
-
-        return {
-          ...review,
-          risk_level: aiResult.risk_level || "Low",
-          issue_category: aiResult.issue_category || "General Safety",
-          authenticity_score: aiResult.authenticity_score ?? 0.5,
-          ai_confidence: aiResult.ai_confidence ?? 0.5,
-          classification: aiResult.classification || "Low Value Lead"
-        };
-      } catch (error) {
-        console.error("AI processing error:", error);
-        return {
-          ...review,
-          risk_level: "Low",
-          issue_category: "General Safety",
-          authenticity_score: 0.5,
-          ai_confidence: 0.5,
-          classification: "Low Value Lead"
-        };
+        aiResults.forEach((aiResult: any, idx: number) => {
+          results.push({
+            id: `rev_${Date.now()}_${i + idx}`, // ✅ Add unique ID here
+            review_text: batch[idx].review_text,
+            product_name: batch[idx].product_name,
+            risk_level: aiResult.risk_level || "Low",
+            issue_category: aiResult.issue_category || "General Safety",
+            authenticity_score: aiResult.authenticity_score ?? 0.5,
+            ai_confidence: aiResult.ai_confidence ?? 0.5,
+            timestamp: new Date().toISOString(),
+            flagged: false,
+            classification: aiResult.classification || "Low Value Lead",
+          });
+          console.log("AI Response:", batch[idx].review_text, aiResult);
+        });
+      } catch (err) {
+        console.error("AI batch processing error:", err);
+        // Fallback defaults
+        batch.forEach((r, idx) => {
+          results.push({
+            id: `rev_${Date.now()}_${i + idx}`, // still generate id
+            review_text: r.review_text,
+            product_name: r.product_name,
+            risk_level: "Low",
+            issue_category: "General Safety",
+            authenticity_score: 0.5,
+            ai_confidence: 0.5,
+            timestamp: new Date().toISOString(),
+            flagged: false,
+            classification: "Low Value Lead",
+          });
+        });
       }
-    }));
+    }
+    return results;
   }, []);
 
-  // CSV file processing
-  const processFile = useCallback(async (file: File) => {
-    if (!file.name.endsWith(".csv")) {
-      toast({ title: "Invalid file", description: "Please upload a CSV file.", variant: "destructive" });
-      return;
-    }
-
-    setScanning(true);
-    setReviews([]);
-
-    try {
-      const result = await parseCSV(file);
-
-      // Step 1: AI enrichment
-      const aiProcessedData = await processWithAI(result.reviews);
-      console.log("Final AI Processed Data:", aiProcessedData);
-
-      // Step 2: Insert enriched data into Supabase
-      await insertReviews(aiProcessedData);
-
-      // Step 3: Update UI state
-      const parsed: Review[] = aiProcessedData.map((r, i) => ({
-        ...r,
-        id: `rev_${Date.now()}_${i}`,
-      }));
-      setReviews(parsed);
-
-      // Step 4: Show toast
-      if (result.errors.length > 0) {
-        toast({
-          title: "Parsed with warnings",
-          description: `${result.errors.length} rows had issues.`,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Scan Complete",
-          description: `${parsed.length} reviews analyzed successfully.`
-        });
+  const processFile = useCallback(
+    async (file: File) => {
+      if (!file.name.endsWith(".csv")) {
+        toast({ title: "Invalid file", description: "Please upload a CSV file.", variant: "destructive" });
+        return;
       }
-    } catch (err) {
-      console.error("File processing error:", err);
-      toast({ title: "Parse Error", description: "Failed to parse CSV file.", variant: "destructive" });
-    } finally {
-      setScanning(false);
-    }
-  }, [toast, processWithAI]);
+
+      setScanning(true);
+      setReviews([]);
+
+      try {
+        const result = await parseCSV(file);
+        // Convert Omit<Review, "id">[] to Review[] by adding id property
+        const reviewsWithId = result.reviews.map((review, index) => ({
+          ...review,
+          id: `parsed_${Date.now()}_${index}`
+        }));
+        const aiProcessedData = await processWithAI(reviewsWithId);
+
+        console.log("Final AI Processed Data:", aiProcessedData);
+
+        await insertReviews(aiProcessedData);
+
+        setReviews(aiProcessedData);
+
+        if (result.errors.length > 0) {
+          toast({ title: "Parsed with warnings", description: `${result.errors.length} rows had issues.`, variant: "destructive" });
+        } else {
+          toast({ title: "Scan Complete", description: `${aiProcessedData.length} reviews analyzed successfully.` });
+        }
+      } catch (err) {
+        console.error("File processing error:", err);
+        toast({ title: "Parse Error", description: "Failed to parse CSV file.", variant: "destructive" });
+      } finally {
+        setScanning(false);
+      }
+    },
+    [toast, processWithAI]
+  );
 
   const handleUpload = () => fileInputRef.current?.click();
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,12 +140,10 @@ const ManualAuditPage = () => {
     const file = e.dataTransfer.files?.[0];
     if (file) processFile(file);
   };
-
   const openAnalysis = (review: Review) => {
     setSelectedReview(review);
     setDrawerOpen(true);
   };
-
   const sendAlert = (channel: string) => {
     toast({ title: "Emergency Alert Sent", description: `Alert sent to safety team via ${channel}.` });
   };
@@ -139,7 +153,6 @@ const ManualAuditPage = () => {
       <div className="space-y-6">
         <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
 
-        {/* Upload Zone */}
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
@@ -217,23 +230,6 @@ const ManualAuditPage = () => {
                 </Section>
                 <Section label="Authenticity Assessment" value={`${selectedReview.authenticity_score >= 0.7 ? "Likely Genuine Review" : "Suspicious Review"} — Confidence ${Math.round(selectedReview.authenticity_score * 100)}%`} />
                 <Section label="AI Confidence" value={`Gemini Confidence ${Math.round(selectedReview.ai_confidence * 100)}%`} />
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">AI Reasoning</p>
-                  <p className="text-sm text-card-foreground bg-secondary rounded-lg p-3">
-                    {selectedReview.authenticity_score < 0.5
-                      ? `This review exhibits patterns consistent with inauthentic reviews: exaggerated language, competitor mentions, and lack of specific product experience details.`
-                      : `The review contains language associated with physical injury and describes a negative reaction after product use. Similar language patterns are commonly associated with ${selectedReview.issue_category.toLowerCase()} complaints.`}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Send Emergency Alert</p>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" onClick={() => sendAlert("WhatsApp")} className="gap-1"><MessageCircle className="w-3 h-3" /> WhatsApp</Button>
-                    <Button size="sm" variant="outline" onClick={() => sendAlert("Email")} className="gap-1"><Mail className="w-3 h-3" /> Email</Button>
-                    <Button size="sm" variant="outline" onClick={() => sendAlert("Slack")} className="gap-1"><Hash className="w-3 h-3" /> Slack</Button>
-                  </div>
-                </div>
               </div>
             )}
           </SheetContent>
