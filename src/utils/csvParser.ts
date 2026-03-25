@@ -56,6 +56,7 @@ export function parseCSV(file: File): Promise<ParsedCSVResult> {
             ai_confidence: row["ai_confidence"] ? parseFloat(row["ai_confidence"]) : 0,
             timestamp: row["timestamp"] || new Date().toISOString(),
             flagged: row["flagged"] === "true" || row["flagged"] === "1",
+            classification: row["classification"] || "Low Value Lead"
           });
         }
 
