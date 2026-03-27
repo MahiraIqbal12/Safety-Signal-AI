@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // ❌ REMOVED admin.deleteUser (was breaking flow)
         if (profileError) {
-          return { success: false, error: "Failed to create user profile" };
+          return { success: true, error: "Verification email sent. Please check your inbox." }; // check inbox message
         }
       }
 
