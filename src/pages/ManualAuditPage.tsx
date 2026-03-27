@@ -216,6 +216,16 @@ const ManualAuditPage = () => {
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/50">
+                    <th className="text-left p-3 font-medium text-muted-foreground">Review Text</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Risk Level</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Issue Category</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">AI Authenticity</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">AI Confidence</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Action</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {reviews.map((r) => (
                     <tr key={r.id} className="border-b hover:bg-secondary/30">
@@ -224,10 +234,11 @@ const ManualAuditPage = () => {
                         <Badge className={riskColor[r.risk_level]}>{r.risk_level}</Badge>
                       </td>
                       <td className="p-3">{r.issue_category}</td>
+                      <td className="p-3">{Math.round(r.authenticity_score * 100)}%</td>
                       <td className="p-3">{Math.round(r.ai_confidence * 100)}%</td>
                       <td className="p-3">
                         <Button size="sm" variant="outline" onClick={() => openAnalysis(r)}>
-                          View
+                          View Analysis
                         </Button>
                       </td>
                     </tr>
@@ -237,6 +248,101 @@ const ManualAuditPage = () => {
             </div>
           </div>
         )}
+
+        {/* Analysis Sidebar */}
+        <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <SheetContent side="right" className="w-full max-w-md p-0">
+            <SheetHeader className="p-6 border-b">
+              <SheetTitle className="text-lg font-semibold">Review Analysis</SheetTitle>
+            </SheetHeader>
+            <div className="p-6 space-y-6">
+              {selectedReview && (
+                <>
+                  {/* Review Details */}
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-2">Review Text</h4>
+                      <p className="text-sm bg-secondary p-3 rounded-lg">{selectedReview.review_text}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Product</h4>
+                        <p className="text-sm">{selectedReview.product_name}</p>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Date</h4>
+                        <p className="text-sm">{selectedReview.review_date}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Risk Level</h4>
+                        <Badge className={riskColor[selectedReview.risk_level]}>{selectedReview.risk_level}</Badge>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Issue Category</h4>
+                        <p className="text-sm">{selectedReview.issue_category}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">AI Authenticity</h4>
+                        <p className="text-sm font-medium">{Math.round(selectedReview.authenticity_score * 100)}%</p>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">AI Confidence</h4>
+                        <p className="text-sm font-medium">{Math.round(selectedReview.ai_confidence * 100)}%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alert Buttons */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm text-muted-foreground">Send Alert</h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button variant="outline" size="sm" className="w-full">
+                        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="#25D366">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.653-.916-2.256-.234-.575-.467-.486-.641-.486-.173 0-.371-.025-.57-.025-.394 0-.738.1-.986.274-.247.173-.935.915-1.423 1.761-.414.702-.788 1.355-.788 2.579 0 1.249.9 2.39 2.024 3.222.812.59 1.602 1.054 2.424 1.08.823.024 1.273-.173 1.822-.46.548-.287 1.761-.849 2.01-1.022.248-.173.52-.173.72-.074.198.099 1.422 1.072 1.62 1.171.199.099.348.149.496.149.15 0 .348-.05.57-.248z"/>
+                        </svg>
+                        WhatsApp
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="#611f69">
+                          <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h7.458v-9.294h-2.02v-3.622h2.02v-2.671c0-2.056 1.252-3.182 3.089-3.182.877 0 1.791.157 1.791.157v1.98h-1.009c-.993 0-1.304.619-1.304 1.258v1.508h2.219l-.354 3.618h-1.865v9.294h7.457c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
+                        </svg>
+                        Slack
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="#D44638">
+                          <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-.887.7-1.61 1.587-1.636h4.154c.168 0 .31.103.357.256l2.326 7.239 3.244-3.245c.24-.24.64-.28.92-.12l7.926 4.734h.003v-2.065l-2.357-1.406c-.271-.16-.332-.52-.15-.78l3.095-4.132c.215-.287.65-.363.95-.173l4.154 2.477A1.636 1.636 0 0 1 24 5.457z"/>
+                        </svg>
+                        Email
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Additional Details */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm text-muted-foreground">Additional Information</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Classification:</span>
+                        <p className="font-medium">{selectedReview.classification}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">User ID:</span>
+                        <p className="font-medium">{selectedReview.user_id}</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </AppLayout>
   );
