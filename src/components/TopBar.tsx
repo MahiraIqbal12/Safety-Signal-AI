@@ -1,4 +1,4 @@
-import { Search, Bell, Moon, Sun } from "lucide-react";
+import { Search, Bell, Moon, Sun, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,13 +10,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const TopBar = ({ title }: { title: string }) => {
+interface TopBarProps {
+  title: string;
+  onMenuToggle: () => void;
+  sidebarOpen: boolean;
+}
+
+const TopBar = ({ title, onMenuToggle, sidebarOpen }: TopBarProps) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="h-16 border-b border-border bg-background flex items-center justify-between px-6 shrink-0">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      <div className="flex items-center gap-4">
+        {/* Hamburger Menu Button - Hidden on desktop */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onMenuToggle}
+          className="md:hidden text-muted-foreground"
+          aria-label="Toggle menu"
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      </div>
+      
       <div className="flex items-center gap-3">
         <div className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

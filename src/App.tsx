@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
+import EmailVerificationPage from "./pages/EmailVerificationPage";
 import DashboardPage from "./pages/DashboardPage";
 import ManualAuditPage from "./pages/ManualAuditPage";
 import AlertHistoryPage from "./pages/AlertHistoryPage";
@@ -27,6 +28,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/manual-audit" element={<ManualAuditPage />} />
               <Route path="/alert-history" element={<AlertHistoryPage />} />
