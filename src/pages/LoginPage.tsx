@@ -109,14 +109,14 @@ const LoginPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md animate-fade-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
-            <Shield className="w-8 h-8 text-primary" />
+          <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-primary/10 mb-4">
+            <Shield className="w-6 h-6 md:w-8 md:h-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Safety Signal AI</h1>
-          <p className="text-muted-foreground mt-1">Your AI-powered safety bodyguard</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground mb-2">Safety Signal AI</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Your AI-powered safety bodyguard</p>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-8 shadow-lg">
+        <div className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-lg">
           <div className="flex space-x-2 mb-6">
             <Button
               variant={isLogin ? "default" : "outline"}
