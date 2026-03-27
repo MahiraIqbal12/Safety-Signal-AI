@@ -50,6 +50,24 @@ const AlertHistoryPage = () => (
         </table>
       </div>
     </div>
+
+    {/* Coming Soon Block */}
+    <div className="rounded-xl border border-border bg-card p-6 animate-fade-in mt-6">
+      <div className="text-center py-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+          <div className="w-8 h-8 bg-primary rounded-full animate-pulse"></div>
+        </div>
+        <h3 className="text-lg font-semibold text-card-foreground mb-2">Alert History Coming Soon</h3>
+        <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+          The alert history functionality is currently under development. This feature will provide 
+          comprehensive tracking of all safety alerts, their status, and resolution history.
+        </p>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary rounded-full text-sm text-muted-foreground">
+          <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+          Coming in next update
+        </div>
+      </div>
+    </div>
   </AppLayout>
 );
 

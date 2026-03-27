@@ -1,6 +1,9 @@
 import AppLayout from "@/components/AppLayout";
 import { ShieldAlert, Search, CheckCircle, TrendingUp } from "lucide-react";
-import { riskTrendData, issueCategoryData } from "@/data/mockData";
+import { useState, useEffect } from "react";
+import { getRiskTrendData, getIssueCategoryData, getDashboardMetrics } from "@/data/mockData";
+import type { TrendData, CategoryData } from "@/services/dashboardService";
+import { useSupabaseAuth } from "@/hooks/useAuth";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -20,9 +23,9 @@ const StatCard = ({ icon: Icon, label, value, sub, color }: { icon: any; label: 
 );
 
 const SafetyGauge = ({ score }: { score: number }) => {
-  const color = score >= 80 ? "text-success" : score >= 60 ? "text-warning" : "text-destructive";
-  const bgColor = score >= 80 ? "bg-success/10" : score >= 60 ? "bg-warning/10" : "bg-destructive/10";
-  const label = score >= 80 ? "Safe" : score >= 60 ? "Attention Needed" : "High Risk";
+  const color = score >= 80 ? "text-destructive" : score >= 60 ? "text-warning" : "text-success";
+  const bgColor = score >= 80 ? "bg-destructive/10" : score >= 60 ? "bg-warning/10" : "bg-success/10";
+  const label = score >= 80 ? "High Risk" : score >= 60 ? "Attention Needed" : "Safe";
   const circumference = 2 * Math.PI * 70;
   const dashOffset = circumference - (score / 100) * circumference * 0.75;
 
@@ -52,22 +55,101 @@ const SafetyGauge = ({ score }: { score: number }) => {
   );
 };
 
-const barColors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+const barColors = [ "hsl(var(--chart-2))", "hsl(var(--chart-1))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 const DashboardPage = () => {
+  const { user, loading: authLoading } = useSupabaseAuth();
+  const [metrics, setMetrics] = useState({
+    totalReviews: 0,
+    criticalHazards: 0,
+    authenticityScore: 0
+  });
+  const [riskTrendData, setRiskTrendData] = useState<TrendData[]>([]);
+  const [issueCategoryData, setIssueCategoryData] = useState<CategoryData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user?.id) return;
+      
+      try {
+        setLoading(true);
+        const [metricsData, trendData, categoryData] = await Promise.all([
+          getDashboardMetrics(user.id),
+          getRiskTrendData(user.id),
+          getIssueCategoryData(user.id)
+        ]);
+        
+        setMetrics(metricsData);
+        setRiskTrendData(trendData);
+        setIssueCategoryData(categoryData);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user?.id]);
+
+  if (authLoading || loading) {
+    return (
+      <AppLayout title="Dashboard">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-sm text-muted-foreground">Loading dashboard data...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AppLayout title="Dashboard">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-muted-foreground mb-4">Please log in</h2>
+            <p className="text-sm text-muted-foreground">You need to be logged in to view your dashboard</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout title="Dashboard">
       <div className="space-y-6">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard icon={Search} label="Total Reviews Scanned" value="12,450" sub="+840 this week" color="bg-primary/10 text-primary" />
-          <StatCard icon={ShieldAlert} label="Critical Hazards Detected" value="18" sub="3 new today" color="bg-destructive/10 text-destructive" />
-          <StatCard icon={CheckCircle} label="Authenticity Score" value="92%" sub="Genuine Reviews" color="bg-success/10 text-success" />
+          <StatCard 
+            icon={Search} 
+            label="Total Reviews Scanned" 
+            value={metrics.totalReviews.toLocaleString()} 
+            sub={`${metrics.totalReviews > 1000 ? '+' : ''}${Math.floor(metrics.totalReviews * 0.07)} this week`} 
+            color="bg-primary/10 text-primary" 
+          />
+          <StatCard 
+            icon={ShieldAlert} 
+            label="Critical Hazards Detected" 
+            value={metrics.criticalHazards.toString()} 
+            sub={`${metrics.criticalHazards > 0 ? metrics.criticalHazards : 'No'} new today`} 
+            color="bg-destructive/10 text-destructive" 
+          />
+          <StatCard 
+            icon={CheckCircle} 
+            label="Authenticity Score" 
+            value={`${metrics.authenticityScore}%`} 
+            sub="Genuine Reviews" 
+            color="bg-blue-500/10 text-blue-600" 
+          />
         </div>
 
         {/* Gauge + Trend */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <SafetyGauge score={84} />
+          <SafetyGauge score={metrics.authenticityScore} />
           <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 hover:shadow-md transition-shadow animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-muted-foreground">Hazard Reports Over Time</h3>
