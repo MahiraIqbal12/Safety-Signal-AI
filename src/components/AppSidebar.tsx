@@ -28,7 +28,7 @@ const AppSidebar = ({ isOpen, onClose }: AppSidebarProps) => {
 
   return (
     <aside 
-      className={`fixed left-0 top-0 h-full w-64 bg-sidebar flex flex-col shrink-0 z-50 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${
+      className={`fixed left-0 top-0 h-full w-64 bg-sidebar flex flex-col shrink-0 z-50 transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}
     >
